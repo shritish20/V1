@@ -3,6 +3,7 @@ VOLGUARD 3.3
 ==============================================
 """
 import os
+from typing import TypeVar, Callable
 import sys
 import time
 import json
@@ -739,7 +740,7 @@ class DatabaseWriter:
         }
         
         try:
-            self.message_queue.put((priority, message), timeout=timeout)
+            self.message_queue.put((priority + (time.perf_counter() % 10000) * 1e-5, message), timeout=timeout)
         except queue.Full:
             # If queue full, try to drop LOW priority items for CRITICAL writes
             if priority <= self.PRIORITY_HIGH:
@@ -788,7 +789,7 @@ class DatabaseWriter:
 
     def executescript(self, sql: str, timeout: float = 5.0):
         try:
-            self.message_queue.put((self.PRIORITY_NORMAL, {'type': 'executescript', 'sql': sql}), timeout=timeout)
+            self.message_queue.put((self.PRIORITY_NORMAL + (time.perf_counter() % 10000) * 1e-5, {'type': 'executescript', 'sql': sql}), timeout=timeout)
         except queue.Full:
             logger.error("DB queue full! Dropping script execution")
 
@@ -1695,9 +1696,9 @@ class TimeMetrics:
     is_expiry_day_weekly: bool = False
     is_expiry_day_monthly: bool = False
     is_past_square_off_time: bool = False
-    is_gamma_week: bool
-    is_gamma_month: bool
-    days_to_next_weekly: int
+    is_gamma_week: bool = False
+    is_gamma_month: bool = False
+    days_to_next_weekly: int = 0
 
 @dataclass
 class VolMetrics:
@@ -2322,7 +2323,11 @@ class AnalyticsEngine:
         )
 
     def get_vol_metrics(self, nifty_hist, vix_hist, live_prices) -> VolMetrics:
+        spot = nifty_hist.iloc[-1]['close'] if not nifty_hist.empty else 0
+        vix = vix_hist.iloc[-1]['close'] if not vix_hist.empty else 0
         is_fallback = False
+        spot = 0
+        vix = 0
         nifty_live = vix_live = 0
         if hasattr(live_prices, 'data'):
             data = live_prices.data
@@ -2330,7 +2335,7 @@ class AnalyticsEngine:
                 nifty_live = data[ProductionConfig.NIFTY_KEY].last_price
             if ProductionConfig.VIX_KEY in data:
                 vix_live = data[ProductionConfig.VIX_KEY].last_price
-                spot = nifty_live if nifty_live > 0 else (nifty_hist.iloc[-1]['close'] if not nifty_hist.empty else 0)
+            spot = nifty_live if nifty_live > 0 else (nifty_hist.iloc[-1]['close'] if not nifty_hist.empty else 0)
         vix = vix_live if vix_live > 0 else (vix_hist.iloc[-1]['close'] if not vix_hist.empty else 0)
         if nifty_live <= 0 or vix_live <= 0:
             is_fallback = True
@@ -4547,7 +4552,7 @@ class SessionManager:
                 market_status = status_response.data.status.upper() if hasattr(status_response.data, 'status') else 'UNKNOWN'
                 if market_status == 'OPEN':
                     return True
-                logger.info(f"Market status: {market_status}')
+                logger.info(f"Market status: {market_status}")
             today_str = date.today().strftime("%Y-%m-%d")
             holiday_response = market_api.get_holiday(today_str)
             if holiday_response.status == 'success' and holiday_response.data:
@@ -5475,3 +5480,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+

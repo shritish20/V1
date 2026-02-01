@@ -1,0 +1,7 @@
+.env
+
+volguard_data/
+
+volguard_logs/
+
+__pycache__/

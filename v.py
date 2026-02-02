@@ -1,7 +1,5 @@
 """
-VOLGUARD 3.3 - Professional Algorithmic Trading System
-======================================================
-AI-Augmented Option Selling Strategy with Risk Management
+VOLGUARD 3
 """
 
 import os

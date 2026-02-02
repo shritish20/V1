@@ -5,21 +5,25 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+# Install build deps AND dos2unix (Critical for Windows devs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# FIX: Using Capital 'C' and 'V' to match your Windows folders
+# Copy entrypoint and fix line endings immediately
 COPY Config/entrypoint.sh /entrypoint.sh
+RUN dos2unix /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Copy application code
 COPY Volguard/volguard.py /app/
 
-RUN chmod +x /entrypoint.sh
-
+# Create user but DO NOT switch to it yet. 
+# We need root in the entrypoint to fix volume permissions first.
 RUN groupadd -g 1000 volguard && useradd -u 1000 -g 1000 volguard
-USER volguard
 
 ENTRYPOINT ["/entrypoint.sh"]
